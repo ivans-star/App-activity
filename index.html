@@ -238,40 +238,62 @@
 
         document.getElementById('timerReset').addEventListener('click', () => setTimer(60));
 
-        // AI Analysis
+        // AI Analysis with Robust Error Handling and Backoff
         async function runAnalysis() {
             const userText = exerciseInput.value.trim();
             if (!userText && !base64Media) return;
 
             loadingDiv.classList.remove('hidden');
             resultDiv.classList.add('hidden');
+            analyzeBtn.disabled = true;
             
             const prompt = `Analiza mi entrenamiento: "${userText}". 
             1. Describe brevemente qué músculos trabajo.
             2. Lista 2 ejercicios de compensación que NECESITO.
             3. Para cada ejercicio de compensación, añade una etiqueta [GUIA: Nombre Ejercicio] al final.`;
 
-            try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }, ...(base64Media ? [{ inlineData: { mimeType, data: base64Media }}] : [])] }],
-                        systemInstruction: { parts: [{ text: "Eres un experto en fitness. Responde en español. Identifica desequilibrios musculares." }] }
-                    })
-                });
-                
-                const data = await response.json();
-                const text = data.candidates[0].content.parts[0].text;
-                
-                displayResults(text, userText);
-                saveToHistory(userText, text);
-            } catch (e) {
-                alert("Error analizando. Prueba con un texto más corto o video más pequeño.");
-            } finally {
-                loadingDiv.classList.add('hidden');
+            let retries = 5;
+            let delay = 1000;
+
+            while (retries > 0) {
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }, ...(base64Media ? [{ inlineData: { mimeType, data: base64Media }}] : [])] }],
+                            systemInstruction: { parts: [{ text: "Eres un experto en fitness. Responde en español. Identifica desequilibrios musculares." }] }
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error?.message || "Error en la respuesta de la API");
+                    }
+
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (!text) throw new Error("No se recibió respuesta del modelo.");
+
+                    displayResults(text, userText);
+                    saveToHistory(userText, text);
+                    break; // Exito
+                } catch (e) {
+                    retries--;
+                    if (retries === 0) {
+                        alert("Error al analizar: " + e.message + ". Si has copiado el código fuera de Canvas, asegúrate de añadir tu propia clave de API.");
+                        console.error("Fallo final tras reintentos:", e);
+                    } else {
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2;
+                    }
+                }
             }
+            
+            loadingDiv.classList.add('hidden');
+            analyzeBtn.disabled = false;
         }
 
         function displayResults(text, originalInput) {
@@ -312,7 +334,10 @@
         }
 
         function renderHistory() {
-            if (history.length === 0) return;
+            if (history.length === 0) {
+                historyList.innerHTML = '<p class="text-slate-400 text-center py-10 italic">Aún no has guardado entrenamientos.</p>';
+                return;
+            }
             historyList.innerHTML = history.map(item => `
                 <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
                     <div class="flex justify-between items-center mb-1">
