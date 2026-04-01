@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BalanceFit - Tu Entrenador IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --secondary: #10b981;
+            --dark: #0f172a;
+        }
+        .muscle-badge {
+            @apply px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider;
+        }
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .tab-active {
+            @apply border-b-4 border-blue-600 text-blue-600;
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans text-slate-900 pb-20">
+
+    <div class="max-w-2xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-black text-slate-800 tracking-tight">BalanceFit <span class="text-blue-600">AI</span></h1>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="flex justify-around mb-8 bg-white rounded-2xl shadow-sm p-1 border border-slate-100">
+            <button onclick="switchTab('analyze')" id="tab-analyze" class="flex-1 py-3 text-sm font-bold uppercase tracking-tighter tab-active">Analizar</button>
+            <button onclick="switchTab('history')" id="tab-history" class="flex-1 py-3 text-sm font-bold uppercase tracking-tighter text-slate-400">Historial</button>
+            <button onclick="switchTab('timer')" id="tab-timer" class="flex-1 py-3 text-sm font-bold uppercase tracking-tighter text-slate-400">Timer</button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="space-y-6">
+            
+            <!-- SECTION: ANALYZE -->
+            <section id="sec-analyze" class="fade-in">
+                <div class="bg-white rounded-[2rem] shadow-xl shadow-slate-200 overflow-hidden border border-slate-100 p-6 md:p-8">
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-black text-slate-400 mb-2 uppercase">Entrenamiento de hoy</label>
+                            <textarea id="exerciseInput" rows="3" 
+                                class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                                placeholder="Ej: 3 series de press de banca y bíceps..."></textarea>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <label class="flex-1 flex items-center justify-center gap-2 p-4 bg-slate-100 rounded-2xl border-2 border-dashed border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                <span class="text-xs font-bold text-slate-600 uppercase">Video/Foto</span>
+                                <input type="file" id="mediaInput" accept="image/*,video/*" class="hidden">
+                            </label>
+                            <button id="analyzeBtn" class="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-200 transition-all active:scale-95 uppercase text-sm">
+                                Analizar Técnica
+                            </button>
+                        </div>
+
+                        <!-- Preview -->
+                        <div id="mediaPreviewContainer" class="hidden relative rounded-2xl overflow-hidden aspect-video bg-black border-4 border-white shadow-md">
+                            <img id="imagePreview" class="hidden w-full h-full object-cover" src="">
+                            <video id="videoPreview" class="hidden w-full h-full object-cover" controls></video>
+                            <button id="removeMedia" class="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full">✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Results -->
+                    <div id="loading" class="hidden mt-8 space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="animate-spin h-5 w-5 border-3 border-blue-600 border-t-transparent rounded-full"></div>
+                            <span class="text-blue-600 font-bold text-sm">Escaneando biomecánica...</span>
+                        </div>
+                        <div class="loading-shimmer h-32 w-full rounded-2xl"></div>
+                    </div>
+
+                    <div id="result" class="hidden mt-8 fade-in border-t border-slate-100 pt-6">
+                        <h2 class="text-xl font-black mb-4">Tu Informe IA</h2>
+                        <div id="analysisContent" class="prose prose-slate text-sm text-slate-600 mb-6"></div>
+                        
+                        <h3 class="text-sm font-black text-slate-800 uppercase mb-4 tracking-widest">Guía Visual de Compensación</h3>
+                        <div id="visualGuide" class="grid grid-cols-1 gap-4">
+                            <!-- Visual Exercise Cards -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: HISTORY -->
+            <section id="sec-history" class="hidden fade-in">
+                <div class="bg-white rounded-[2rem] p-6 shadow-xl border border-slate-100">
+                    <h2 class="text-xl font-black mb-4">Progreso Guardado</h2>
+                    <div id="historyList" class="space-y-4">
+                        <p class="text-slate-400 text-center py-10 italic">Aún no has guardado entrenamientos.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: TIMER -->
+            <section id="sec-timer" class="hidden fade-in">
+                <div class="bg-slate-900 rounded-[2.5rem] p-10 text-center shadow-2xl relative overflow-hidden">
+                    <div class="relative z-10">
+                        <h2 class="text-blue-400 font-black text-xs uppercase tracking-[0.3em] mb-6">Temporizador de Serie</h2>
+                        <div id="timerDisplay" class="text-7xl font-black text-white mb-10 tabular-nums">01:00</div>
+                        <div class="flex justify-center gap-4">
+                            <button id="timerToggle" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-black uppercase text-sm hover:bg-blue-400 hover:text-white transition-colors">Start</button>
+                            <button id="timerReset" class="bg-slate-800 text-slate-400 px-8 py-3 rounded-xl font-black uppercase text-sm">Reset</button>
+                        </div>
+                        <div class="flex justify-center gap-2 mt-8">
+                            <button onclick="setTimer(30)" class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300">30s</button>
+                            <button onclick="setTimer(60)" class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300">1m</button>
+                            <button onclick="setTimer(120)" class="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300">2m</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script type="module">
+        const apiKey = ""; 
+
+        // State
+        let timerSeconds = 60;
+        let timerInterval = null;
+        let isTimerRunning = false;
+        let base64Media = null;
+        let mimeType = null;
+        let history = JSON.parse(localStorage.getItem('fitHistory') || '[]');
+
+        // DOM Elements
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const exerciseInput = document.getElementById('exerciseInput');
+        const mediaInput = document.getElementById('mediaInput');
+        const resultDiv = document.getElementById('result');
+        const loadingDiv = document.getElementById('loading');
+        const analysisContent = document.getElementById('analysisContent');
+        const visualGuide = document.getElementById('visualGuide');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const timerToggle = document.getElementById('timerToggle');
+        const historyList = document.getElementById('historyList');
+
+        // Tab Navigation
+        window.switchTab = (tab) => {
+            ['analyze', 'history', 'timer'].forEach(t => {
+                document.getElementById(`sec-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('tab-active');
+                document.getElementById(`tab-${t}`).classList.add('text-slate-400');
+            });
+            document.getElementById(`sec-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('tab-active');
+            document.getElementById(`tab-${tab}`).classList.remove('text-slate-400');
+            if(tab === 'history') renderHistory();
+        };
+
+        // Media Handling
+        mediaInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                mimeType = file.type;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    base64Media = event.target.result.split(',')[1];
+                    document.getElementById('mediaPreviewContainer').classList.remove('hidden');
+                    if (mimeType.startsWith('video')) {
+                        document.getElementById('videoPreview').src = event.target.result;
+                        document.getElementById('videoPreview').classList.remove('hidden');
+                        document.getElementById('imagePreview').classList.add('hidden');
+                    } else {
+                        document.getElementById('imagePreview').src = event.target.result;
+                        document.getElementById('imagePreview').classList.remove('hidden');
+                        document.getElementById('videoPreview').classList.add('hidden');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('removeMedia').addEventListener('click', () => {
+            base64Media = null;
+            document.getElementById('mediaPreviewContainer').classList.add('hidden');
+        });
+
+        // Timer Logic
+        window.setTimer = (s) => {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            timerToggle.innerText = "Start";
+            timerSeconds = s;
+            updateTimerDisplay();
+        };
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(timerSeconds / 60);
+            const secs = timerSeconds % 60;
+            timerDisplay.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        timerToggle.addEventListener('click', () => {
+            if (isTimerRunning) {
+                clearInterval(timerInterval);
+                timerToggle.innerText = "Start";
+            } else {
+                timerToggle.innerText = "Pausa";
+                timerInterval = setInterval(() => {
+                    if (timerSeconds > 0) {
+                        timerSeconds--;
+                        updateTimerDisplay();
+                    } else {
+                        clearInterval(timerInterval);
+                        alert("¡Tiempo cumplido!");
+                    }
+                }, 1000);
+            }
+            isTimerRunning = !isTimerRunning;
+        });
+
+        document.getElementById('timerReset').addEventListener('click', () => setTimer(60));
+
+        // AI Analysis
+        async function runAnalysis() {
+            const userText = exerciseInput.value.trim();
+            if (!userText && !base64Media) return;
+
+            loadingDiv.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+            
+            const prompt = `Analiza mi entrenamiento: "${userText}". 
+            1. Describe brevemente qué músculos trabajo.
+            2. Lista 2 ejercicios de compensación que NECESITO.
+            3. Para cada ejercicio de compensación, añade una etiqueta [GUIA: Nombre Ejercicio] al final.`;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }, ...(base64Media ? [{ inlineData: { mimeType, data: base64Media }}] : [])] }],
+                        systemInstruction: { parts: [{ text: "Eres un experto en fitness. Responde en español. Identifica desequilibrios musculares." }] }
+                    })
+                });
+                
+                const data = await response.json();
+                const text = data.candidates[0].content.parts[0].text;
+                
+                displayResults(text, userText);
+                saveToHistory(userText, text);
+            } catch (e) {
+                alert("Error analizando. Prueba con un texto más corto o video más pequeño.");
+            } finally {
+                loadingDiv.classList.add('hidden');
+            }
+        }
+
+        function displayResults(text, originalInput) {
+            analysisContent.innerHTML = text.replace(/\[GUIA: (.*?)\]/g, '').replace(/\n/g, '<br>');
+            
+            // Extraer guías visuales
+            const exerciseMatches = text.match(/\[GUIA: (.*?)\]/g) || [];
+            visualGuide.innerHTML = '';
+            
+            exerciseMatches.forEach(match => {
+                const name = match.replace('[GUIA: ', '').replace(']', '');
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border border-slate-200 rounded-2xl p-4 flex gap-4 items-center";
+                card.innerHTML = `
+                    <div class="w-20 h-20 bg-blue-100 rounded-xl flex items-center justify-center text-blue-500 overflow-hidden">
+                         <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=fff&size=128" class="w-full h-full object-cover">
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800">${name}</h4>
+                        <p class="text-xs text-slate-500">Ejercicio recomendado para balancear tu rutina.</p>
+                    </div>
+                `;
+                visualGuide.appendChild(card);
+            });
+
+            resultDiv.classList.remove('hidden');
+        }
+
+        // History Management
+        function saveToHistory(input, analysis) {
+            const entry = {
+                date: new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
+                input: input || "Análisis por Video",
+                summary: analysis.substring(0, 100) + "..."
+            };
+            history.unshift(entry);
+            localStorage.setItem('fitHistory', JSON.stringify(history.slice(0, 10))); // Guardar últimos 10
+        }
+
+        function renderHistory() {
+            if (history.length === 0) return;
+            historyList.innerHTML = history.map(item => `
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-black uppercase text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">${item.date}</span>
+                    </div>
+                    <p class="font-bold text-slate-800 text-sm mb-1">${item.input}</p>
+                    <p class="text-xs text-slate-500 line-clamp-2">${item.summary}</p>
+                </div>
+            `).join('');
+        }
+
+        analyzeBtn.addEventListener('click', runAnalysis);
+        updateTimerDisplay();
+
+    </script>
+</body>
+</html>
